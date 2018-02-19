@@ -17,12 +17,16 @@ int main(int argc, char **argv)
 	struct sockaddr_in sa;
 
 	if (argc < 2 || argc > 4) {
-		fprintf(stderr,"Error- invalid input arguments\n");
+		fprintf(stderr,"Usage: %s <hostname> [start] [end]\n", argv[0]);
 		exit(-1);
 	}
 	strncpy(hostname, argv[1], sizeof(hostname));
 	
-	//initialize the port numbers
+	/*
+	 * DEFAULT PORTSCAN
+	 * START -> 1
+	 * END   -> 1024
+	 */
 	if (argc == 4){
 		start = atoi(argv[2]);
 		end = atoi(argv[3]);
@@ -33,9 +37,8 @@ int main(int argc, char **argv)
 	}
 	
 	//initialize the sock_addr_in structure
-	strncpy((char*)&sa , "", sizeof sa);
+	memset((char*)&sa , 0, sizeof sa);
 	sa.sin_family = AF_INET;
-	printf("sin_family: %d\n", sa.sin_family);
 
 	//hostname to ip address
 	if((host = gethostbyname(argv[1])) != 0){
@@ -47,34 +50,34 @@ int main(int argc, char **argv)
 		exit(-1);
 	}
 
-	printf("h_name is:%s\n", host->h_name);
-	printf("h_addrtype is:%d\n", host->h_addrtype);
-	printf("h_length is: %d\n", host->h_length);
-	printf("h_aliases is: %s\n", host->h_aliases[0]);
-
-
-	printf("starting the for loop\n");
 	
 	for (ii = start; ii <= end; ii++){
-		//give the port number to check 
 		sa.sin_port = htons(ii);
-		printf("sin_port: %d\n", sa.sin_port);
 		sock = socket(AF_INET, SOCK_STREAM, 0);
 
 		if (sock < 0){
 			perror("\nSocket");
 			exit(1);
 		}
+		struct timeval timeout;
+		timeout.tv_sec = 2;
+		timeout.tv_usec = 0;
+
+		if (setsockopt (sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout)) < 0)
+			fprintf(stderr,"setsockopt failed\n");
+
+		if (setsockopt (sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout)) < 0)
+			fprintf(stderr,"setsockopt failed\n");
+
 		err = connect(sock, (struct sockaddr*)&sa, sizeof sa);
 
 		if (err < 0){
-			fflush(stdout);
+			printf("%-5d closed/blocked\n",ii);
 		}
 		//connected
 		else{
 			printf("%-5d open\n",ii);
 		}
-		printf("3\n");
 		close(sock);
 	}
 	printf("\r");
