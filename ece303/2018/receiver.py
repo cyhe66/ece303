@@ -58,7 +58,7 @@ class Receiver(object):
                 
                 if checksum == rcv_checksum:
                     #store message 
-                    received_packets[struct.unpack(">i",rcv_seqNum)[0]] = rcv_data
+                    received_packets[struct.unpack(">i",rcv_seqNum)[0]] = rcv_data[:struct.unpack(">i", rcv_length)[0]]
                     
                     #send back ACK
                     #send back burst of 1111 or 0000. No need to checksum, as the probability of error on flipping all four bits from 
@@ -81,8 +81,8 @@ class Receiver(object):
                 pass
 
         #write the packets out
+        self.logger.info('writing to output file')
         for key,value in sorted(received_packets.items()):
-            self.logger.info('writing to output file')
             sys.stdout.write(value)
 
         sys.exit()
