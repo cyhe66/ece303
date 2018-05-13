@@ -12,11 +12,11 @@ import binascii
 
 class Sender(object):
     #selective repeat
-    WINDOW = 128 #4294967296 #2^32,  or 4 bytes
-    MAX_SEQ_NO = 4294967296 #2^32
+    WINDOW = 128 
+    #MAX_SEQ_NO = 4294967296 #2^32
     PACKET_DATA_BYTES = 64
 
-    def __init__(self, inbound_port=50006, outbound_port=50005, timeout=10, debug_level=logging.INFO):
+    def __init__(self, inbound_port=50006, outbound_port=50005, timeout=0.9, debug_level=logging.INFO):
         self.logger = utils.Logger(self.__class__.__name__, debug_level)
 
         self.inbound_port = inbound_port
@@ -26,11 +26,13 @@ class Sender(object):
         self.simulator.sndr_setup(timeout)
         self.simulator.rcvr_setup(timeout)
     
+
     def checksum(self, seqNum,data):
         filled_Data = string.join([string.zfill(n, 8) for n in map(lambda s: s[2:], map(bin, data))], '')
         checksum = zlib.adler32(seqNum + filled_Data) & 0xffffffff
         return checksum
 
+    #parse the input for all metadata and data
     def data_split(self, data):
         data_array = []
         dictionary = {}
@@ -55,7 +57,8 @@ class Sender(object):
             #print 'data packet is:', data_packet
 
             
-            checksum_string = bin(self.checksum(binary_iterator, data_packet)).zfill(32)
+            checksum_string = bin(self.checksum(binary_iterator, data_packet))#.zfill(32)
+            print (checksum_string)
             checksum = bytearray(int(checksum_string[i:i+8],2) for i in range(0,32,8)) 
             #print checksum_string
             #print ('sequence number is:'+ str(checksum[0:4]))
@@ -66,8 +69,8 @@ class Sender(object):
                 "length":length_of_data,
                 "checksum":checksum,
                 "data":data_packet,
-                "ack":False,
                 "sent":False
+                #"ack":False,
                 })
             dictionary[iterator] = False
             iterator+=1 
@@ -83,6 +86,9 @@ class Sender(object):
     
         window_size = self.WINDOW 
         lower = 0
+
+        sn_lower_bound = 0
+        sn_upper_bound = 0
 
         if num_of_packets < window_size:
             window_size = num_of_packets
@@ -106,7 +112,7 @@ class Sender(object):
                 #print sn_lower_bound, sn_upper_bound
 
                 #send the packets in window
-                for i in range(sn_lower_bound,sn_upper_bound):
+                for i in range(sn_lower_bound,sn_upper_bound+1):
                     if data_array[i]["sent"] == False:
                         datagram = data_array[i]["seqNum"] +  data_array[i]["length"] + data_array[i]["checksum"] + data_array[i]["data"]
                         ''' 
@@ -117,72 +123,72 @@ class Sender(object):
                         print ('data is:',str(data_array[i]["data"][:]))
                         print ('datagram is:',str(datagram[:]))
                         '''
-                        #print 'seqNo is: ', struct.unpack(">i", data_array[i]["seqNum"][:])[0]
                         self.simulator.u_send(datagram)  # send data
+                        self.logger.info('sent {} of {} packets'.format(i+1, num_of_packets))
+
                         data_array[i]["sent"] = True
                 
                 while True: #ack stuff
-                    #receive ACK
                     ack = self.simulator.u_receive() 
                     
                     ack_seqNum = ack[0:4]
                     integer = struct.unpack(">i",ack_seqNum)[0]
+                    #self.logger.info('received ack for {}'.format(integer))
                     ack_data = ack[4:8]
                     output= struct.unpack(">i",ack_data)[0]
-
-                    if output == 1111 and integer >= lower and integer <= upper and dictionary[integer] == False:
+                    
+                    if (output == 1111 or output == 1110 or output == 1101 or output== 1011 or output== 0111) and integer >= lower and integer <= upper and dictionary[integer] == False:
                         data_array[integer]["ack"] = True
                         dictionary[integer] = True
-                        #print 'acked ', integer, 'in range', lower,'-', upper
                         if integer == lower:
                             break
-                      
+                    '''
+                    #program struggles near edge of window range. Thus, when it gets close to the window range, it's forced to go back and continue calculations                   
                     if integer == (upper-2):
-                        #print 'operating'
                         for i in range(sn_lower_bound,sn_upper_bound):
                             if not dictionary[i]:
-                        #if not data_array[i]["ack"]:
                                 datagram = data_array[i]["seqNum"] +  data_array[i]["length"] + data_array[i]["checksum"] + data_array[i]["data"]
                                 self.simulator.u_send(datagram)  # send data
-
-                    if integer == num_of_packets-2:
-                        datagram = data_array[sn_upper_bound]["seqNum"] +  data_array[sn_upper_bound]["length"] + data_array[sn_upper_bound]["checksum"] + data_array[sn_upper_bound]["data"]
-                        self.simulator.u_send(datagram)  # send data
-                        
-                        #print 'eureka'
-
+                    '''
+                    datagram = data_array[num_of_packets-1]["seqNum"] +  data_array[num_of_packets -1]["length"] + data_array[num_of_packets-1]["checksum"] + data_array[num_of_packets-1]["data"]
+                    self.simulator.u_send(datagram)  # send data
+                       
                 #update lower bound on window
                 tempLower = lower
-                for i in range(lower,upper):
+                for i in range(lower,upper+1):
                     if not dictionary[i]:
-                    #if not data_array[i]["ack"]:
                         lower = i
                         break
-                #print 'templower is:', tempLower
-                #print 'lower is: ', lower
-                #print num_of_packets
-                #print dictionary[num_of_packets-1]
                     
-                if lower == tempLower:  #everything has been acked
+                if lower == num_of_packets-self.WINDOW+1:  #everything has been acked
                     print 'finished'
                     break
 
-            
-            except socket.timeout:
-                for i in range(sn_lower_bound,sn_upper_bound):
+           #timeout, keep sending data 
+            except socket.timeout as e:
+                self.logger.info(str(e))
+                self.logger.debug('lower: {};\nupper: {}\n'.format(sn_lower_bound, sn_upper_bound))
+                for i in range(sn_lower_bound,sn_upper_bound+1):
                     if not dictionary[i]:
-                    #if not data_array[i]["ack"]:
+                        self.logger.info('sending {} of {} packets'.format(i+1, num_of_packets))
+                        print('sending {} of {} packets'.format(i+1, num_of_packets))
                         datagram = data_array[i]["seqNum"] +  data_array[i]["length"] + data_array[i]["checksum"] + data_array[i]["data"]
                         self.simulator.u_send(datagram)  # send data
+                        self.logger.info('sent {} of {} packets'.format(i+1, num_of_packets))
 
+                for i in range(sn_lower_bound,sn_upper_bound+1):
+                    if not dictionary[i]:
+                        lower = i
+                        break
 
-            #####send end transmission packet
+            ##send end transmission packet
         while True:
             self.simulator.u_send(bytearray([255, 0] + [255]*5))
             # check for end transmission
             try:
                 ack = self.simulator.u_receive()
-            except socket.timeout:
+            except socket.timeout as e:
+                self.logger.info(str(e))
                 sys.exit()
             if ack[0] & (~ack[1] & 0xFF) & ack[2] & ack[3] & ack[4] & ack[5] & ack[6] == 255:
                 break
@@ -190,12 +196,14 @@ class Sender(object):
 
 
 if __name__ == "__main__":
-    # test out BogoSender
+    #due to the inconsistencies in the makefile, I added this
+    #time.sleep() to mitigate potential race conditions
+    #actual program time is therefore 0.1 seconds faster :)
+    time.sleep(0.1)
+    
     DATA = bytearray(sys.stdin.read())
-
-    #print(DATA)
     sndr = Sender()
     z = sndr.send(DATA)
-    print(z)
+    #print(z)
 
     

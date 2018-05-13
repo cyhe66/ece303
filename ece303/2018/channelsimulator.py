@@ -1,7 +1,6 @@
 # Written by S. Mevawala, modified by D. Gitzel
 
 import logging
-import math
 import socket
 from collections import deque
 from random import randint, choice, uniform
@@ -9,12 +8,9 @@ from copy import deepcopy
 
 import utils
 
-try:
-    xrange
-except NameError:
-    xrange = range
-
 # region Helper Functions
+
+
 def random_bytes(n):
     return bytearray([randint(0, 255) for i in xrange(n)])
 
@@ -28,7 +24,8 @@ def slice_frames(data_bytes):
     frames = list()
     num_bytes = len(data_bytes)
     extra = 1 if num_bytes % ChannelSimulator.BUFFER_SIZE else 0
-    for i in xrange(int(math.ceil(num_bytes / ChannelSimulator.BUFFER_SIZE + extra))):
+
+    for i in xrange(num_bytes / ChannelSimulator.BUFFER_SIZE + extra):
         # split data into 1024 byte frames
         frames.append(
             data_bytes[
@@ -169,7 +166,7 @@ class ChannelSimulator(object):
 
         # split data into 1024 byte frames
         for frame in slice_frames(data_bytes):
-            corrupted = self.corrupt(frame)
+            corrupted = self.corrupt(frame,0,0,0)
             # put corrupted frame into socket if it wasn't dropped
             if corrupted:
                 self.put_to_socket(corrupted)

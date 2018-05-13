@@ -2,11 +2,11 @@ INPUT ?= ./file_1MB.txt
 OUTPUT ?= ./output.txt
 
 
-test: receiver.o sender.o
+test: sender
 
-sender.o: receiver.o
+sender: receiver
 	time python2 sender.py < $(INPUT) &
-receiver.o:
+receiver:
 	python2 receiver.py > $(OUTPUT) & 
 diff:
 	diff $(INPUT) $(OUTPUT)
