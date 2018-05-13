@@ -11,7 +11,7 @@ import socket
 
 class Receiver(object):
 
-    def __init__(self, inbound_port=50005, outbound_port=50006, timeout=0.9, debug_level=logging.INFO):
+    def __init__(self, inbound_port=50005, outbound_port=50006, timeout=0.05, debug_level=logging.INFO):
         self.logger = utils.Logger(self.__class__.__name__, debug_level)
 
         self.inbound_port = inbound_port
@@ -30,7 +30,7 @@ class Receiver(object):
         self.logger.info("Receiving on port: {} and replying with ACK on port: {}".format(self.inbound_port, self.outbound_port))
 
         lower = 0
-        WINDOW = 128
+        WINDOW = 2**11
         terminate = False
         received_packets = {}
         while not terminate:
@@ -47,8 +47,11 @@ class Receiver(object):
                 rcv_length = data[4:8]
                 rcv_checksum = data[8:12]
                 rcv_data = data[12:]
-                #print rcv_data
-                self.logger.info('rcved {}'.format(struct.unpack(">i", rcv_seqNum)[0]))
+
+                if terminate:
+                    self.logger.info('rcvd TERM')
+                else:
+                    self.logger.info('rcvd {}'.format(struct.unpack(">i", rcv_seqNum)[0]))
 
                 #at this point, we have received and deconstructed the message
 
@@ -66,15 +69,13 @@ class Receiver(object):
                     ones = 1111
                     msg = rcv_seqNum + struct.pack(">i",ones)
                     self.simulator.u_send(msg)
-                    self.logger.info('ack is sent back {}'.format(struct.unpack(">i", rcv_seqNum)[0]))
-                    #print('ack is sent back', struct.unpack(">i", rcv_seqNum)[0])
+                    self.logger.info('sending ACK {}'.format(struct.unpack(">i", rcv_seqNum)[0]))
                 else:
                     #send back NAK (doesn't really matter, is ignored anyways)
                     zeros = 0000
                     msg = rcv_seqNum + struct.pack(">i",zeros)
                     self.simulator.u_send(msg)
-                    #self.logger.info('nack is sent back {}'.format(struct.unpack(">i", rcv_seqNum)[0]))
-                    #print('nack is sent back', struct.unpack(">i", rcv_seqNum)[0])
+                    self.logger.info('sending NACK {}'.format(struct.unpack(">i", rcv_seqNum)[0]))
 
             except Exception as e:
                 self.logger.info(str(e))
