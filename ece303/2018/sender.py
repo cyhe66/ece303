@@ -164,7 +164,7 @@ class Sender(object):
                 #print dictionary[num_of_packets-1]
                     
                 if lower == tempLower:  #everything has been acked
-                    #print 'fin bro'
+                    print 'finished'
                     break
 
             

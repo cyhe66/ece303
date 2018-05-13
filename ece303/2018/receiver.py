@@ -89,7 +89,7 @@ class Receiver(object):
                     ones = 1111
                     msg = rcv_seqNum + struct.pack(">i",ones)
                     self.simulator.u_send(msg)
-                    #print 'ack is sent back', struct.unpack(">i", rcv_seqNum)[0]
+                    self.logger.info('ack is sent back', struct.unpack(">i", rcv_seqNum)[0])
                 else:
                     #send back NAK
                     zeros = 0000
