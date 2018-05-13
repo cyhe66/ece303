@@ -150,8 +150,8 @@ class Sender(object):
                                 datagram = data_array[i]["seqNum"] +  data_array[i]["length"] + data_array[i]["checksum"] + data_array[i]["data"]
                                 self.simulator.u_send(datagram)  # send data
                     '''
-                    datagram = data_array[num_of_packets-1]["seqNum"] +  data_array[num_of_packets -1]["length"] + data_array[num_of_packets-1]["checksum"] + data_array[num_of_packets-1]["data"]
-                    self.simulator.u_send(datagram)  # send data
+                    #datagram = data_array[num_of_packets-1]["seqNum"] +  data_array[num_of_packets -1]["length"] + data_array[num_of_packets-1]["checksum"] + data_array[num_of_packets-1]["data"]
+                    #self.simulator.u_send(datagram)  # send data
                        
                 #update lower bound on window
                 tempLower = lower
