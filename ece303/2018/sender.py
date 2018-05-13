@@ -12,7 +12,7 @@ import binascii
 
 class Sender(object):
     #selective repeat
-    WINDOW = 128 
+    WINDOW = 2**11
     #MAX_SEQ_NO = 4294967296 #2^32
     PACKET_DATA_BYTES = 64
 
@@ -109,7 +109,7 @@ class Sender(object):
                         data_array[i]["sent"] = True
                 
                 #ack stuff
-                while True:
+                while not term:
                     ack = self.simulator.u_receive() 
                     
                     ack_seqNum = ack[0:4]
@@ -137,11 +137,18 @@ class Sender(object):
            #timeout, keep sending data 
             except socket.timeout as e:
                 self.logger.info(str(e))
+                still_left = False
                 for i in range(sn_lower_bound,sn_upper_bound+1):
                     if not dictionary[i]:
                         self.logger.info('TO:sending {} of {} packets'.format(i, num_of_packets-1))
                         datagram = data_array[i]["seqNum"] +  data_array[i]["length"] + data_array[i]["checksum"] + data_array[i]["data"]
                         self.simulator.u_send(datagram)  # send data
+                        still_left = True
+
+                if not still_left:
+                    print 'finished'
+                    term = True
+
 
         #send end transmission packet
         while True:

@@ -30,7 +30,7 @@ class Receiver(object):
         self.logger.info("Receiving on port: {} and replying with ACK on port: {}".format(self.inbound_port, self.outbound_port))
 
         lower = 0
-        WINDOW = 128
+        WINDOW = 2**11
         terminate = False
         received_packets = {}
         while not terminate:
@@ -47,9 +47,6 @@ class Receiver(object):
                 rcv_length = data[4:8]
                 rcv_checksum = data[8:12]
                 rcv_data = data[12:]
-
-                if struct.unpack(">i", rcv_seqNum)[0] == 12340:
-                    terminate = True
 
                 if terminate:
                     self.logger.info('rcvd TERM')
